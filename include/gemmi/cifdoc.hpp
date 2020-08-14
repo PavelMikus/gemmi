@@ -293,6 +293,17 @@ struct Table {
     }
   };
 
+    // It is not a proper input iterator, but just enough for using range-for.
+  struct iterator {
+    Table& parent;
+    int index;
+    void operator++() { index++; }
+    bool operator==(const iterator& o) const { return index == o.index; }
+    bool operator!=(const iterator& o) const { return index != o.index; }
+    Row operator*() { return parent[index]; }
+    const std::string& get(int n) const { return parent[index].at(n); }
+  };
+
   Loop* get_loop();
   bool ok() const { return !positions.empty(); }
   size_t width() const { return positions.size(); }
@@ -325,6 +336,7 @@ struct Table {
   }
 
   Row find_row(const std::string& s);
+  iterator find_row_iter(const std::string& s);
 
   template <typename T> void append_row(T new_values);
   void append_row(std::initializer_list<std::string> new_values) {
@@ -355,16 +367,7 @@ struct Table {
 
   void erase();
 
-  // It is not a proper input iterator, but just enough for using range-for.
-  struct iterator {
-    Table& parent;
-    int index;
-    void operator++() { index++; }
-    bool operator==(const iterator& o) const { return index == o.index; }
-    bool operator!=(const iterator& o) const { return index != o.index; }
-    Row operator*() { return parent[index]; }
-    const std::string& get(int n) const { return parent[index].at(n); }
-  };
+
   iterator begin() { return iterator{*this, 0}; }
   iterator end() { return iterator{*this, (int)length()}; }
 };
@@ -608,15 +611,23 @@ inline size_t Table::length() const {
 }
 
 inline Table::Row Table::find_row(const std::string& s) {
+  iterator iter = find_row_iter(s);
+  if (iter != end()) {
+    return *iter;
+  }
+  fail("Not found in the first column: " + s);
+}
+
+inline Table::iterator Table::find_row_iter(const std::string& s){
   int pos = positions.at(0);
   if (const Loop* loop = get_loop()) {
     for (size_t i = 0; i < loop->values.size(); i += loop->width())
       if (as_string(loop->values[i + pos]) == s)
-        return Row{*this, static_cast<int>(i / loop->width())};
+        return iterator{*this, static_cast<int>(i / loop->width())};
   } else if (as_string(bloc.items[pos].pair[1]) == s) {
-    return Row{*this, 0};
+    return iterator{*this, 0};
   }
-  fail("Not found in the first column: " + s);
+  return end();
 }
 
 template <typename T> void Table::append_row(T new_values) {

@@ -660,10 +660,11 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
     ent.entity_type = entity_type_from_string(row.str(1));
     ent.polymer_type = PolymerType::Unknown;
     if (polymer_types.ok()) {
-      try {
-        std::string poly_type = polymer_types.find_row(ent.name).str(1);
+      auto row_iter = polymer_types.find_row_iter(ent.name);
+      if (row_iter != polymer_types.end()) {
+        std::string poly_type = (*row_iter).str(1);
         ent.polymer_type = polymer_type_from_string(poly_type);
-      } catch (std::runtime_error&) {}
+      }
     }
     st.entities.push_back(ent);
   }
@@ -694,14 +695,15 @@ inline Structure make_structure_from_block(const cif::Block& block_) {
         dbref.accession_code = row.str(4);
       if (row.has(5))
         dbref.isoform = row.str(5);
-      try { // find_row() throws if row is not found
-        cif::Table::Row seq = struct_ref_seq.find_row(row.str(0));
+      auto iter = struct_ref_seq.find_row_iter(row.str(0));
+      if (iter != struct_ref_seq.end()) {
+        cif::Table::Row seq = *iter;
         constexpr int None = SeqId::OptionalNum::None;
         dbref.label_seq_begin = cif::as_int(seq[1], None);
         dbref.label_seq_end = cif::as_int(seq[2], None);
         dbref.db_begin.num = cif::as_int(seq[3], None);
         dbref.db_end.num = cif::as_int(seq[4], None);
-      } catch (const std::runtime_error&) {}
+      }
     }
 
   for (auto row : block.find("_struct_asym.", {"id", "entity_id"}))
